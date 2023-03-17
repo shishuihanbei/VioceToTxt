@@ -25,7 +25,7 @@ def mp4tomp3(path,file):
 		print('不是视频格式')
 
 def main():
-	path = input("请输入文件或文件夹地址：")
+	path = input("请输入文件或文件夹地址：").replace('"','')
 	video_type = ["mp4","m4a","mov","avi","wmv","mpeg","rmvb"]
 	audio_type = ["mp3","wav","amr","aac"]
 	if os.path.exists(path):
