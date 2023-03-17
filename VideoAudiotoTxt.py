@@ -91,7 +91,7 @@ class LenovoFileToTxt():
 			time.sleep(1)
 
 def main():
-	file = "C:/Users/Administrator/Desktop/鹏飞聊教培--音频/"
+	file = "C:/Users/Administrator/Desktop/test/"
 	for i in os.listdir(file):
 		print("正在处理",i)
 		f = os.path.join(file,i)
