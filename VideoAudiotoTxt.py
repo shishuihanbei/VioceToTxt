@@ -89,17 +89,3 @@ class LenovoFileToTxt():
 				txt = "\n".join([i['onebest'] for i in json.loads(result["res"]["asrTxt"])])
 				return self.videoName,txt
 			time.sleep(1)
-
-def main():
-	file = "C:/Users/Administrator/Desktop/test/"
-	for i in os.listdir(file):
-		print("正在处理",i)
-		f = os.path.join(file,i)
-		file_name,txt = LenovoFileToTxt(f).getTaskTxt()
-		with open(os.path.join(file,file_name.rsplit(".",1)[0].strip()+'.txt'),'w',encoding="utf-8") as f:
-			f.write(txt)
-		# path = os.path.abspath(f)
-		print(file)
-
-if __name__ == '__main__':
-	main()
