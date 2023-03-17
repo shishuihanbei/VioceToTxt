@@ -7,7 +7,10 @@ import time
 
 def getTxt(txt_path,video_file):
 	print("正在处理：",os.path.split(video_file)[-1])
-	file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
+	try:
+		file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
+	except Exception as e:
+		file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
 	with open(os.path.join(txt_path,file_name.rsplit(".",1)[0].strip()+'.txt'),'w',encoding="utf-8") as f:
 		f.write(txt)
 	print("处理完成：",os.path.split(video_file)[-1])
@@ -18,8 +21,9 @@ def mp4tomp3(path,file):
 		audio = clip.audio
 		fpath,fname = os.path.split(file)
 		fname,ftype = os.path.splitext(fname)
+		print("正在进行格式转换：",fname)
 		file_mp3 = os.path.join(path,fname) + '.mp3'
-		l = audio.write_audiofile(file_mp3)
+		l = audio.write_audiofile(file_mp3,logger=None)
 		return file_mp3
 	else:
 		print('不是视频格式')
