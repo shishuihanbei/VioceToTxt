@@ -51,6 +51,7 @@ def main():
 					audio_file = os.path.join(audio_path,mf)
 					if mf.rsplit('.',1)[-1].lower() in audio_type:
 						getTxt(txt_path,audio_file)
+						time.sleep(5)
 		elif os.path.isfile(path):
 			base_path = os.path.dirname(path)
 			if path.rsplit('.',1)[-1].lower() in video_type:
