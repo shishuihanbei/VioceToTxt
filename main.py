@@ -7,10 +7,7 @@ import time
 
 def getTxt(txt_path,video_file):
 	print("正在处理：",os.path.split(video_file)[-1])
-	try:
-		file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
-	except Exception as e:
-		file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
+	file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
 	with open(os.path.join(txt_path,file_name.rsplit(".",1)[0].strip()+'.txt'),'w',encoding="utf-8") as f:
 		f.write(txt)
 	print("处理完成：",os.path.split(video_file)[-1])
