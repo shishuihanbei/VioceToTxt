@@ -3,6 +3,7 @@ import os
 import requests
 import json
 import time
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 class LenovoFileToTxt():
 	def __init__(self,file):
@@ -51,10 +52,13 @@ class LenovoFileToTxt():
 			"videoSize":self.videoSize,
 			"period":self.period
 		}
-		files = {'file':(self.videoName,open(self.file,'rb'))}
+		files = {'file':(self.videoName,open(self.file,'rb'), 'audio/mpeg')}
+		formatdate = MultipartEncoder(files)
+		headers = self.headers
+		headers['Content-Type'] = formatdate.content_type
 		flag = True
 		while flag:
-			resp = requests.post(url = upload_url,params = params,files= files,headers = self.headers,verify =False)
+			resp = requests.post(url = upload_url,params = params,data= formatdate,headers = headers,verify =False)
 			taskId = resp.json()['res']['taskId']
 			if taskId:
 				flag = False
