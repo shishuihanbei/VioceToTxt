@@ -52,8 +52,12 @@ class LenovoFileToTxt():
 			"period":self.period
 		}
 		files = {'file':(self.videoName,open(self.file,'rb'))}
-		resp = requests.post(url = upload_url,params = params,files= files,headers = self.headers,verify =False)
-		taskId = resp.json()['res']['taskId']
+		flag = True
+		while flag:
+			resp = requests.post(url = upload_url,params = params,files= files,headers = self.headers,verify =False)
+			taskId = resp.json()['res']['taskId']
+			if taskId:
+				flag = False
 		return taskId
 
 	def getTaskStatus(self,taskId):
