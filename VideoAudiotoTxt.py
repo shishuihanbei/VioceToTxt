@@ -3,6 +3,7 @@ import os
 import requests
 import json
 import time
+import random
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 class LenovoFileToTxt():
@@ -13,6 +14,7 @@ class LenovoFileToTxt():
 		self.file = file
 		self.url = 'https://smart.lenovo.com.cn/audioservice'
 		self.headers = {
+			"X-Forwarded-For":str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255)),
 			"Tokencui":self.getCuiToken(),
 			"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.41"
 		}
