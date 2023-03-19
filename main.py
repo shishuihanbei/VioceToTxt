@@ -37,6 +37,7 @@ def main():
 			audio_path = os.path.join(os.path.dirname(file_path),os.path.split(file_path)[1]+"--音频")
 			txt_path = os.path.join(os.path.dirname(file_path),os.path.split(file_path)[1]+"--文本")
 			flag = False
+			count = 1
 			if not os.path.exists(audio_path):
 				os.mkdir(audio_path)
 			if not os.path.exists(txt_path):
@@ -48,12 +49,16 @@ def main():
 					flag = True
 				elif f.rsplit('.',1)[-1].lower() in audio_type:
 					print('-' * 50)
+					print('正在处理第{}个，总共有{}个。' .format(count,len(os.listdir(path))))
+					count += 1
 					getTxt(txt_path,video_file)
 			if flag:
 				for mf in os.listdir(audio_path):
 					audio_file = os.path.join(audio_path,mf)
 					if mf.rsplit('.',1)[-1].lower() in audio_type:
 						print('-' * 50)
+						print('正在处理第{}个，总共有{}个。' .format(count,len(os.listdir(audio_path))))
+						count += 1
 						getTxt(txt_path,audio_file)
 						time.sleep(5)
 		elif os.path.isfile(path):
