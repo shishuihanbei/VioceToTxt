@@ -67,6 +67,7 @@ class LenovoFileToTxt():
 				taskId = resp.json()['res']['taskId']
 				if taskId:
 					flag = False
+					print('上传成功！')
 					return taskId
 			except:
 				print('准备重新上传！')
