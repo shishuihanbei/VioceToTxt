@@ -17,6 +17,6 @@
 
 - 2、运行main.py文件
 ```
-windows python main.py 
-mac python3 main.py
+windows下 python main.py 
+mac下 python3 main.py
 ```
