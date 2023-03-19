@@ -1,82 +1,112 @@
-import os
-import json
-import shutil
 from moviepy.editor import VideoFileClip,AudioFileClip
-from VideoAudiotoTxt import LenovoFileToTxt
+import os
+import requests
+import json
 import time
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+import random
 
-def getTxt(txt_path,video_file):
-	# print("正在处理：",os.path.split(video_file)[-1])
-	file_name,txt = LenovoFileToTxt(video_file).getTaskTxt()
-	with open(os.path.join(txt_path,file_name.rsplit(".",1)[0].strip()+'.txt'),'w',encoding="utf-8") as f:
-		f.write(txt)
-	# print("处理完成：",os.path.split(video_file)[-1])
+class LenovoFileToTxt():
+	def __init__(self,file):
+		self.videoName = os.path.split(file)[1]
+		self.videoSize = os.path.getsize(file)
+		self.period = int(AudioFileClip(file).duration*1000)
+		self.file = file
+		self.url = 'https://smart.lenovo.com.cn/audioservice'
+		self.headers = {
+			"X-Forwarded-For":str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255)),
+			"Tokencui":self.getCuiToken(),
+			"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.41"
+		}
 
-def mp4tomp3(path,file):
-	if not file.endswith('.mp3'):
-		clip = VideoFileClip(file)
-		audio = clip.audio
-		fpath,fname = os.path.split(file)
-		fname,ftype = os.path.splitext(fname)
-		print("正在进行格式转换：",fname)
-		file_mp3 = os.path.join(path,fname) + '.mp3'
-		audio.write_audiofile(file_mp3,logger=None)
-		return file_mp3
-	else:
-		print('不是视频格式')
+	def getCuiToken(self):
+		headers = {
+			"Content-Type":"application/json",
+			"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.41"
+		}
+		data = {
+			"lenovo_id_info": {
+				"realm": "api.iot.lenovomm.com",
+				"ticket": ""
+			},
+			"client_key": "60a3327c94df8b95f0ccb7a4",
+			"device_info": {
+				"device_id": "1a5ee779-bd34-4374-b7bd-bb7868a6961b",
+				"mac": "",
+				"vendor": "UNKNOW_TYPE",
+				"hw_model": "Chrome_Text_Translation",
+				"client_sw_ver": '2.0.0'
+			},
+			"product_id": "Chrome_Text_Translation",
+		}
+		cui = "https://cuiauth.lenovo.com.cn:443/auth/v1/simpletoken"
+		resp = requests.post(url = cui,data = json.dumps(data),headers = headers,verify = False)
+		result = resp.json()
 
-def main():
-	starttime = time.time()
-	path = input("请输入文件或文件夹地址：").replace('"','')
-	video_type = ["mp4","m4a","mov","avi","wmv","mpeg","rmvb"]
-	audio_type = ["mp3","wav","amr","aac"]
-	print("*" * 100)
-	if os.path.exists(path):
-		if os.path.isdir(path):
-			file_path = os.path.abspath(path)
-			audio_path = os.path.join(os.path.dirname(file_path),os.path.split(file_path)[1]+"--音频")
-			txt_path = os.path.join(os.path.dirname(file_path),os.path.split(file_path)[1]+"--文本")
-			flag = False
-			count = 1
-			if not os.path.exists(audio_path):
-				os.mkdir(audio_path)
-			if not os.path.exists(txt_path):
-				os.mkdir(txt_path)
-			for f in os.listdir(path):
-				video_file = os.path.join(path,f)
-				if f.rsplit('.',1)[-1].lower() in video_type:
-					mp4tomp3(audio_path,video_file)
-					flag = True
-				elif f.rsplit('.',1)[-1].lower() in audio_type:
-					print('-' * 50)
-					print('正在处理第{}个，总共有{}个。' .format(count,len(os.listdir(path))))
-					count += 1
-					getTxt(txt_path,video_file)
-			if flag:
-				for mf in os.listdir(audio_path):
-					audio_file = os.path.join(audio_path,mf)
-					if mf.rsplit('.',1)[-1].lower() in audio_type:
-						print('-' * 50)
-						print('正在处理第{}个，总共有{}个。' .format(count,len(os.listdir(audio_path))))
-						count += 1
-						getTxt(txt_path,audio_file)
-						time.sleep(5)
-		elif os.path.isfile(path):
-			base_path = os.path.dirname(path)
-			if path.rsplit('.',1)[-1].lower() in video_type:
-				mp3_file = os.path.join(base_path,os.path.split(path)[1].rsplit(".",1)[0] + '.mp3')
-				mp4tomp3(base_path,path)
-				getTxt(base_path,mp3_file)
-			elif path.rsplit('.',1)[-1].lower() in audio_type:
-				getTxt(base_path,path)
-	else:
-		print("请输入正确的文件夹或文件地址")
-	endtime = time.time()
-	releasetime = endtime - starttime
-	m,s = divmod(releasetime,60)
-	h,m = divmod(m,60)
-	print("耗时：{}时{}分{}秒" .format(int(h),int(m),int(s)))
+		tokencui = result['data']['access_token']
+		return tokencui
 
+	def fileupload(self):
+		"""音视频文件上传"""
+		flag = True
+		while flag:
+			upload_url = self.url + "/voice/wav2txt"
+			params = {
+				"language":"cn",
+				"videoName":self.videoName,
+				"videoSize":self.videoSize,
+				"period":self.period
+			}
+			files = {'file':(self.videoName,open(self.file,'rb'), 'audio/mpeg')}
+			formatdate = MultipartEncoder(files)
+			headers = self.headers
+			headers['Content-Type'] = formatdate.content_type
+			print("\r正在上传文件：{}" .format(self.videoName))
+			try:
+				resp = requests.post(url = upload_url,params = params,data= formatdate,headers = headers,verify =False)
+				taskId = resp.json()['res']['taskId']
+				if taskId:
+					flag = False
+					return taskId
+			except:
+				print('准备重新上传！')
+				time.sleep(30)
+			continue
 
-if __name__ == "__main__":
-	main()
+	def getTaskStatus(self,taskId):
+		"""获取任务状态"""
+		task_status_url = self.url + "/voice/getTaskStatus"
+		params = {"taskId":taskId}
+		resp = requests.get(url = task_status_url, headers = self.headers, params = params, verify =False)
+		result = resp.json()
+		return result
+
+	def deleteTask(self,taskId):
+		"""删除任务"""
+		del_url = self.url + "/voice/deleteTask"
+		params = {
+			"taskId":taskId
+		}
+		resp = requests.get(url = del_url, headers = self.headers, params = params,verify =False)
+		result = resp.json()
+		status = result['status']
+		if status == "Y":
+			print("\n远程文件删除成功！")
+
+	def getTaskTxt(self):
+		"""获取完成的文件并删除任务"""
+		taskId = self.fileupload()
+		flag = True
+		n = 1
+		while flag:
+			print("\r正在查询是否转换完成,当前查询：{}次" .format(n),end=" ")
+			result = self.getTaskStatus(taskId)
+			translateTime = result['res']['translateTime']
+			n += 1
+			if translateTime == "已完成":
+				flag = False
+				self.deleteTask(taskId)
+				txt = "\n".join([i['onebest'] for i in json.loads(result["res"]["asrTxt"])])
+				print("\r输出完成...")
+				return self.videoName,txt
+			time.sleep(5)
