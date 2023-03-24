@@ -1,112 +1,212 @@
-from moviepy.editor import VideoFileClip,AudioFileClip
+import tkinter as tk
+from tkinter import ttk,Canvas,SUNKEN, RAISED,END
+from tkinter import filedialog
 import os
-import requests
 import json
 import time
-from requests_toolbelt.multipart.encoder import MultipartEncoder
-import random
+import tkinter.messagebox as messagebox
+from VideoAudiotoTxt import LenovoFileToTxt,mp4tomp3
+import threading
+from icon import Icon
+import base64
 
-class LenovoFileToTxt():
-	def __init__(self,file):
-		self.videoName = os.path.split(file)[1]
-		self.videoSize = os.path.getsize(file)
-		self.period = int(AudioFileClip(file).duration*1000)
-		self.file = file
-		self.url = 'https://smart.lenovo.com.cn/audioservice'
-		self.headers = {
-			"X-Forwarded-For":str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255))+'.'+str(random.randint(0,255)),
-			"Tokencui":self.getCuiToken(),
-			"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.41"
-		}
+class WindowGui():
+	def __init__(self):
+		self.file_path = ''
+		self.video_type = ["mp4","m4a","mov","avi","wmv","mpeg","rmvb"]
+		self.audio_type = ["mp3","wav","amr","aac"]
+		self.tree = ''
+		self.singleorpath = ''
 
-	def getCuiToken(self):
-		headers = {
-			"Content-Type":"application/json",
-			"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 Edg/111.0.1661.41"
-		}
-		data = {
-			"lenovo_id_info": {
-				"realm": "api.iot.lenovomm.com",
-				"ticket": ""
-			},
-			"client_key": "60a3327c94df8b95f0ccb7a4",
-			"device_info": {
-				"device_id": "1a5ee779-bd34-4374-b7bd-bb7868a6961b",
-				"mac": "",
-				"vendor": "UNKNOW_TYPE",
-				"hw_model": "Chrome_Text_Translation",
-				"client_sw_ver": '2.0.0'
-			},
-			"product_id": "Chrome_Text_Translation",
-		}
-		cui = "https://cuiauth.lenovo.com.cn:443/auth/v1/simpletoken"
-		resp = requests.post(url = cui,data = json.dumps(data),headers = headers,verify = False)
-		result = resp.json()
+	def getfiles(self):
+		files = filedialog.askdirectory()
+		self.inserttable(files)
+		self.file_path.set(files)
 
-		tokencui = result['data']['access_token']
-		return tokencui
+	def getfile(self):
+		file=tk.filedialog.askopenfilename(filetypes=[("文件类型",self.video_type + self.audio_type)])
+		self.inserttable(file)
+		self.file_path.set(file)
 
-	def fileupload(self):
-		"""音视频文件上传"""
-		flag = True
-		while flag:
-			upload_url = self.url + "/voice/wav2txt"
-			params = {
-				"language":"cn",
-				"videoName":self.videoName,
-				"videoSize":self.videoSize,
-				"period":self.period
-			}
-			files = {'file':(self.videoName,open(self.file,'rb'), 'audio/mpeg')}
-			formatdate = MultipartEncoder(files)
-			headers = self.headers
-			headers['Content-Type'] = formatdate.content_type
-			print("\r正在上传文件：{}" .format(self.videoName))
-			try:
-				resp = requests.post(url = upload_url,params = params,data= formatdate,headers = headers,verify =False)
-				taskId = resp.json()['res']['taskId']
-				if taskId:
-					flag = False
-					return taskId
-			except:
-				print('准备重新上传！')
-				time.sleep(30)
-			continue
+	def delButton(self):
+		x = self.tree.get_children()
+		for item in x:
+			self.tree.delete(item)
 
-	def getTaskStatus(self,taskId):
-		"""获取任务状态"""
-		task_status_url = self.url + "/voice/getTaskStatus"
-		params = {"taskId":taskId}
-		resp = requests.get(url = task_status_url, headers = self.headers, params = params, verify =False)
-		result = resp.json()
-		return result
+	def inserttable(self,path):
+		if os.path.exists(path):
+			if os.path.isdir(path):
+				self.singleorpath = "文件夹"
+				count = 1
+				self.delButton()
+				for f in os.listdir(path):
+					filename,filetype = os.path.split(f)[1].rsplit(".",1)
+					if filetype.endswith(tuple(self.video_type + self.audio_type)):
+						self.tree.insert('', tk.END, values=[count,filename,filetype,'否','0次','否','否'])
+						count += 1
+			elif os.path.isfile(path):
+				self.singleorpath = "文件"
+				if path.rsplit('.',1)[-1].lower() in self.video_type + self.audio_type and path.rsplit('.',1)[-1].lower().endswith(tuple(self.video_type + self.audio_type)):
+					filename,filetype = os.path.split(path)[1].rsplit(".",1)
+					self.delButton()
+					self.tree.insert('', tk.END, values=[1,filename,filetype,'否','0次','否','否'])
+		else:
+			messagebox.showinfo('提示','请输入正确的文件夹或文件地址')
 
-	def deleteTask(self,taskId):
-		"""删除任务"""
-		del_url = self.url + "/voice/deleteTask"
-		params = {
-			"taskId":taskId
-		}
-		resp = requests.get(url = del_url, headers = self.headers, params = params,verify =False)
-		result = resp.json()
-		status = result['status']
-		if status == "Y":
-			print("\n远程文件删除成功！")
+	@classmethod
+	def writetxt(cls,path,name,content):
+		file_name = name + '--文本.txt'
+		file_path = os.path.join(path,file_name)
+		with open(file_path, "w", encoding="utf-8") as f:
+			f.write(content)
 
-	def getTaskTxt(self):
-		"""获取完成的文件并删除任务"""
-		taskId = self.fileupload()
+	def getMessage(self,count,line_id,txtpath,base_file,bpath,file_name):
+		FileToTxt = LenovoFileToTxt(base_file)
+		taskId = FileToTxt.fileupload()
+		self.tree.set(line_id,column="是否上传", value="上传成功！")
 		flag = True
 		n = 1
 		while flag:
-			print("\r正在查询是否转换完成,当前查询：{}次" .format(n),end=" ")
-			result = self.getTaskStatus(taskId)
+			time.sleep(10)
+			result = FileToTxt.getTaskStatus(taskId)
 			translateTime = result['res']['translateTime']
+			self.tree.set(line_id,column="查询次数", value="正在查询{}次" .format(n))
 			n += 1
 			if translateTime == "已完成":
 				flag = False
-				self.deleteTask(taskId)
+				self.tree.set(line_id,column="查询次数", value="总查询{}次" .format(n))
+				FileToTxt.deleteTask(taskId)
+				self.tree.set(line_id,column="已传文件", value="是")
 				txt = "\n".join([i['onebest'] for i in json.loads(result["res"]["asrTxt"])])
-				print("\r输出完成...")
-				return self.videoName,txt
-			time.sleep(5)
+				if count == 1:
+					WindowGui.writetxt(bpath,file_name,txt)
+				else:
+					WindowGui.writetxt(txtpath,file_name,txt)
+				self.tree.set(line_id,column="是否完成", value="是")
+
+	def startTask(self):
+		self.startButton.config(state='disable',background="green",disabledforeground="#fff",text="正在处理...",relief=SUNKEN)
+		self.file_button.config(state='disable',background="#99FFCC",disabledforeground="#000",text="单个文件",relief=SUNKEN)
+		self.files_button.config(state='disable',background="#993300",disabledforeground="#fff",text="文件夹",relief=SUNKEN)
+
+		base_path = self.file_path.get()
+		count = len(self.tree.get_children())
+		if count == 0:
+			messagebox.showinfo('提示','请输入正确的文件夹或文件地址')
+		if self.singleorpath == "文件":
+			bpath = os.path.split(base_path)[0]
+			basepath = bpath
+			txtpath = ''
+			audiopath = ''
+		elif self.singleorpath == "文件夹":
+			basepath = base_path
+			bpath,bfilename = os.path.split(base_path)
+			txtpath = os.path.join(bpath,bfilename+'--文本')
+			audiopath = os.path.join(bpath,bfilename+'--音频')
+			if not os.path.exists(txtpath):
+				os.mkdir(txtpath)
+			if not os.path.exists(audiopath):
+				os.mkdir(audiopath)
+		for line in self.tree.get_children():
+			line_id = line
+			values = self.tree.item(line_id)["values"]
+			file_name = values[1]
+			file_type = values[2]
+			file = file_name + "." + file_type
+			if file_type in self.video_type:
+				video_file = os.path.join(basepath,file_name+ "." + file_type)
+				if count == 1:
+					audio_file = mp4tomp3(bpath,video_file)
+				else:
+					audio_file = mp4tomp3(audiopath,video_file)
+				self.getMessage(count,line_id,txtpath,audio_file,bpath,file_name)
+				try:
+					os.remove(audio_file)
+				except Exception as e:
+					continue
+			elif file_type in self.audio_type:
+				self.tree.set(line_id,column="是否上传", value="正在上传...")
+				base_file = os.path.join(basepath,file)
+				self.getMessage(count,line_id,txtpath,base_file,bpath,file_name)
+		self.file_button.config(state='norma',background="#99FFCC",foreground="#000",text="单个文件",relief=RAISED)
+		self.files_button.config(state='norma',background="#993300",foreground="#fff",text="文件夹",relief=RAISED)
+		self.startButton.config(state='norma',text='开始转换',background="red",foreground="#fff",relief=RAISED)
+		b_str = messagebox.askquestion('结果', '处理完成,是否关闭？')
+		self.closegui(b_str,audiopath)
+		
+	def closegui(self,str,path):
+		if str == "yes":
+			self.window.destroy()
+		else:
+			messagebox.showinfo('提示','将清空已完成的文件！')
+			self.delButton()
+			self.file_lable.delete('0', "end")
+
+
+	def threadTask(self):
+		t = threading.Thread(target=self.startTask)
+		t.start()
+
+	def gui(self):
+		self.window = tk.Tk()
+		self.window.resizable(False,False)
+		self.window.title("音视频转文字")
+		with open('tem.ico','wb') as tmp:
+			tmp.write(base64.b64decode(Icon().img))
+		self.window.iconbitmap("tem.ico")
+		os.remove('tem.ico')
+		window_width = 750
+		window_height = 600
+		screen_width = self.window.winfo_screenwidth()
+		screen_height = self.window.winfo_screenheight()
+		x = (screen_width - window_width - 16) // 2
+		y = (screen_height - window_height - 32) // 2
+		self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+		file_l = tk.Label(text = '选择文件或文件夹:')
+		file_l.place(x=30,y=25)
+		self.file_path = tk.StringVar()
+		self.file_lable = tk.Entry(self.window,textvariable=self.file_path,bd=2,width=50,borderwidth=0.5)
+		self.file_lable.place(x=150,y=25)
+		self.file_button = tk.Button(self.window,text='单个文件',width=10,background="#99FFCC",command=self.getfile)
+		self.file_button.place(x=530,y=20)
+		self.files_button = tk.Button(self.window,text='文件夹',width=10,background="#993300",foreground="#FFFFFF",command=self.getfiles)
+		self.files_button.place(x=630,y=20)
+
+		tabel_frame = tk.Frame(self.window,width=690,height=500,background='#ccc')
+		tabel_frame.place(x=30,y=70)
+		xscroll = tk.Scrollbar(tabel_frame, orient=tk.HORIZONTAL)
+		yscroll = tk.Scrollbar(tabel_frame, orient=tk.VERTICAL)
+		
+		columns = ['序号', '文件名', '文件类型', '是否上传', '查询次数', '已传文件','是否完成']
+		self.tree=ttk.Treeview(master=tabel_frame,height=20,columns=columns,show='headings')
+		self.tree.heading("序号",text="序号")
+		self.tree.column("序号", width=50, anchor=tk.CENTER)
+		self.tree.heading("文件名",text="文件名")
+		self.tree.column("文件名", width=200, minwidth=200,anchor=tk.CENTER)
+		self.tree.heading("文件类型",text="文件类型")
+		self.tree.column("文件类型", width=80, anchor=tk.CENTER)
+		self.tree.heading("是否上传",text="是否上传")
+		self.tree.column("是否上传", width=80, anchor=tk.CENTER)
+		self.tree.heading("查询次数",text="查询次数")
+		self.tree.column("查询次数", width=80, anchor=tk.CENTER)
+
+		self.tree.heading("已传文件",text="已传文件删除")
+		self.tree.column("已传文件", width=100, anchor=tk.CENTER)
+
+		self.tree.heading("是否完成",text="是否完成")
+		self.tree.column("是否完成", width=80, anchor=tk.CENTER)
+		xscroll.config(command=self.tree.xview)
+		xscroll.pack(side=tk.BOTTOM, fill=tk.X)
+		yscroll.config(command=self.tree.yview)
+		yscroll.pack(side=tk.RIGHT, fill=tk.Y)
+		self.tree.pack(fill=tk.BOTH, expand=True)
+		self.startButton = tk.Button(self.window,text='开始转换',width=20,height=2,background="red",foreground="#fff",command=self.threadTask)
+		self.startButton.place(x=560,y=510)
+
+		self.window.mainloop()
+
+def main():
+	win = WindowGui()
+	win.gui()
+if __name__ == "__main__":
+	main()
